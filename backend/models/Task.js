@@ -15,21 +15,20 @@ const taskSchema = new mongoose.Schema({
     enum: ["à faire", "en cours", "terminée", "supprimée"], 
     default: "à faire" 
   },
-  module: { type: String, required: true, trim: true }, // ✅ Rendu obligatoire car utilisé dans le frontend
+  module: { type: String, required: true, trim: true }, 
   categorie: { 
     type: String, 
     enum: ["universitaire", "para-universitaire", "autre"],
     default: "autre"
   },
   
-  // ✅ Ajout du champ lien manquant
+  
   lien: { 
     type: String, 
     trim: true,
     validate: {
       validator: function(v) {
-        if (!v) return true; // Optionnel
-        // Validation URL simple
+        if (!v) return true;
         return /^https?:\/\/.+/.test(v) || /^www\..+/.test(v) || /^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(v);
       },
       message: "Veuillez entrer une URL valide"
@@ -48,41 +47,40 @@ const taskSchema = new mongoose.Schema({
     }
   },
   
-  // Nouvelles propriétés
-  templateId: { type: String }, // Si créée depuis un template
-  dureeEstimee: { type: Number, min: 0 }, // En minutes, avec validation
-  parentTask: { type: mongoose.Schema.Types.ObjectId, ref: "Task" }, // Pour les sous-tâches
-  tags: [{ type: String, trim: true }], // Tags personnalisés
+ 
+  templateId: { type: String }, 
+  dureeEstimee: { type: Number, min: 0 }, 
+  parentTask: { type: mongoose.Schema.Types.ObjectId, ref: "Task" }, 
+  tags: [{ type: String, trim: true }], 
   rappels: [{
     date: { type: Date },
     message: { type: String },
     envoye: { type: Boolean, default: false }
   }],
   
-  // Métadonnées
-  completedAt: { type: Date }, // Date de completion
-  deletedAt: { type: Date }, // Pour soft delete
-  lastViewedAt: { type: Date, default: Date.now }, // Dernière consultation
   
-  // Collaboration
+  completedAt: { type: Date }, 
+  deletedAt: { type: Date }, 
+  lastViewedAt: { type: Date, default: Date.now }, 
+  
+ 
   comments: [{
-    author: { type: String, required: true }, // Email de l'auteur
+    author: { type: String, required: true }, 
     message: { type: String, required: true },
     createdAt: { type: Date, default: Date.now }
   }],
   
-  // Tracking productivité
-  timeSpent: { type: Number, default: 0, min: 0 }, // Temps total en secondes
-  pomodoroCount: { type: Number, default: 0, min: 0 }, // Nombre de pomodoros complétés
+  
+  timeSpent: { type: Number, default: 0, min: 0 }, 
+  pomodoroCount: { type: Number, default: 0, min: 0 }, 
   
 }, { 
   timestamps: true,
-  // Options pour optimiser les performances
   toJSON: { virtuals: true },
   toObject: { virtuals: true }
 });
 
-// ✅ Index pour recherche textuelle (amélioré)
+
 taskSchema.index({ 
   titre: "text", 
   description: "text", 
@@ -90,38 +88,38 @@ taskSchema.index({
   tags: "text"
 }, {
   weights: {
-    titre: 10,      // Titre plus important
-    module: 5,      // Module important
-    description: 1, // Description moins importante
-    tags: 3         // Tags moyennement importants
+    titre: 10,      
+    module: 5,      
+    description: 1, 
+    tags: 3         
   }
 });
 
-// ✅ Index pour les requêtes fréquentes (optimisés)
-taskSchema.index({ owners: 1, statut: 1, dateEcheance: 1 }); // Compound index
+
+taskSchema.index({ owners: 1, statut: 1, dateEcheance: 1 }); 
 taskSchema.index({ owners: 1, priorite: 1 });
 taskSchema.index({ user: 1, createdAt: -1 });
-taskSchema.index({ dateEcheance: 1, statut: 1 }); // Pour les tâches en retard
+taskSchema.index({ dateEcheance: 1, statut: 1 }); 
 
-// ✅ Virtual pour calculer si la tâche est en retard
+
 taskSchema.virtual('isOverdue').get(function() {
   return this.statut !== 'terminée' && new Date() > this.dateEcheance;
 });
 
-// ✅ Virtual pour calculer les jours restants
+
 taskSchema.virtual('daysRemaining').get(function() {
   const today = new Date();
   const diffTime = this.dateEcheance - today;
   return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 });
 
-// ✅ Virtual pour le pourcentage de progression estimé
+
 taskSchema.virtual('progressPercentage').get(function() {
   if (!this.dureeEstimee || this.dureeEstimee === 0) return 0;
   return Math.min(100, Math.round((this.timeSpent / (this.dureeEstimee * 60)) * 100));
 });
 
-// ✅ Virtual pour URL formatée
+
 taskSchema.virtual('formattedUrl').get(function() {
   if (!this.lien) return null;
   if (this.lien.startsWith('http')) return this.lien;
@@ -129,7 +127,7 @@ taskSchema.virtual('formattedUrl').get(function() {
   return `https://${this.lien}`;
 });
 
-// ✅ Middleware pour mettre à jour completedAt
+
 taskSchema.pre('save', function(next) {
   if (this.isModified('statut')) {
     if (this.statut === 'terminée' && !this.completedAt) {
@@ -147,16 +145,15 @@ taskSchema.pre('save', function(next) {
   next();
 });
 
-// ✅ Middleware pour soft delete (amélioré)
+
 taskSchema.pre(/^find/, function(next) {
-  // Par défaut, exclure les tâches supprimées sauf si explicitement demandées
   if (!this.getQuery().statut && !this.getQuery().includeDeleted) {
     this.find({ statut: { $ne: 'supprimée' } });
   }
   next();
 });
 
-// ✅ Méthodes statiques utiles (améliorées)
+
 taskSchema.statics.findActive = function(userEmail) {
   return this.find({ 
     owners: userEmail, 
@@ -198,7 +195,6 @@ taskSchema.statics.getStats = function(userEmail) {
   ]);
 };
 
-// ✅ Méthodes d'instance (améliorées)
 taskSchema.methods.addComment = function(authorEmail, message) {
   this.comments.push({
     author: authorEmail,
