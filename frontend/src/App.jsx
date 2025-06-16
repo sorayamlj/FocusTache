@@ -1,4 +1,4 @@
-// src/App.jsx - VERSION COMPLÈTE
+// src/App.jsx - VERSION CORRIGÉE
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import LoginUnified from './components/Login';
@@ -18,6 +18,28 @@ const App = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [appError, setAppError] = useState(null);
 
+  // Fonction pour vérifier si le token est valide côté client
+  const isTokenValid = (token) => {
+    if (!token) return false;
+    
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const currentTime = Date.now() / 1000;
+      
+      // Vérifier si le token n'est pas expiré
+      if (payload.exp < currentTime) {
+        console.log('Token expiré');
+        return false;
+      }
+      
+      console.log('Token valide jusqu\'au:', new Date(payload.exp * 1000));
+      return true;
+    } catch (error) {
+      console.error('Erreur décodage token:', error);
+      return false;
+    }
+  };
+
   // Vérifier l'authentification au chargement
   useEffect(() => {
     checkAuthentication();
@@ -28,36 +50,45 @@ const App = () => {
       const token = localStorage.getItem('token');
       const userData = localStorage.getItem('user');
       
-      if (token && userData) {
-        // Vérifier que le token est encore valide
-        const response = await fetch('http://localhost:5000/api/auth/verify', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
+      console.log('🔍 Vérification authentification...');
+      console.log('Token trouvé:', !!token);
+      console.log('User data trouvé:', !!userData);
+      
+      if (token && userData && isTokenValid(token)) {
+        console.log('✅ Token valide côté client');
+        
+        // Optionnel: Vérifier avec le serveur en utilisant l'endpoint /me existant
+        try {
+          const response = await fetch('http://localhost:5000/api/auth/me', {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
 
-        if (response.ok) {
+          if (response.ok) {
+            const serverUser = await response.json();
+            console.log('✅ Token validé côté serveur');
+            setUser(serverUser);
+            setIsAuthenticated(true);
+          } else {
+            console.log('❌ Token rejeté par le serveur');
+            // Token invalide côté serveur, déconnecter
+            handleLogout();
+          }
+        } catch (networkError) {
+          console.log('⚠️ Erreur réseau, utilisation du cache local');
+          // En cas d'erreur réseau, utiliser les données locales
           const parsedUser = JSON.parse(userData);
           setUser(parsedUser);
           setIsAuthenticated(true);
-        } else {
-          // Token invalide, nettoyer le localStorage
-          handleLogout();
         }
+      } else {
+        console.log('❌ Pas de token valide');
+        handleLogout();
       }
     } catch (error) {
       console.error('Erreur vérification auth:', error);
-      // En cas d'erreur réseau, garder l'état local si possible
-      const userData = localStorage.getItem('user');
-      if (userData) {
-        try {
-          const parsedUser = JSON.parse(userData);
-          setUser(parsedUser);
-          setIsAuthenticated(true);
-        } catch (parseError) {
-          handleLogout();
-        }
-      }
+      handleLogout();
     } finally {
       setIsLoading(false);
     }
@@ -65,6 +96,7 @@ const App = () => {
 
   // Fonction de logout
   const handleLogout = () => {
+    console.log('🚪 Déconnexion');
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setIsAuthenticated(false);
@@ -75,6 +107,7 @@ const App = () => {
   // Fonction de login (appelée depuis le composant Login)
   const handleLogin = (userData, token) => {
     try {
+      console.log('🔑 Connexion:', userData);
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(userData));
       setUser(userData);
@@ -98,26 +131,26 @@ const App = () => {
 
   // Composant de chargement amélioré
   const LoadingScreen = () => (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-slate-800 flex items-center justify-center">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-green-900 to-slate-900 flex items-center justify-center">
       <div className="flex flex-col items-center gap-6">
         {/* Logo animé */}
         <div className="relative">
-          <div className="w-16 h-16 bg-gradient-to-r from-blue-500 via-purple-500 to-cyan-500 rounded-2xl flex items-center justify-center shadow-2xl">
+          <div className="w-16 h-16 bg-gradient-to-r from-green-500 via-emerald-500 to-green-600 rounded-2xl flex items-center justify-center shadow-2xl">
             <span className="text-2xl font-bold text-white">F</span>
           </div>
-          <div className="absolute inset-0 w-16 h-16 bg-gradient-to-r from-blue-500 via-purple-500 to-cyan-500 rounded-2xl animate-ping opacity-20"></div>
+          <div className="absolute inset-0 w-16 h-16 bg-gradient-to-r from-green-500 via-emerald-500 to-green-600 rounded-2xl animate-ping opacity-20"></div>
         </div>
         
         {/* Spinner */}
         <div className="relative">
-          <div className="w-12 h-12 border-4 border-slate-600 border-t-blue-500 rounded-full animate-spin"></div>
-          <div className="absolute inset-0 w-12 h-12 border-4 border-transparent border-b-purple-500 rounded-full animate-spin" style={{ animationDirection: 'reverse', animationDuration: '0.8s' }}></div>
+          <div className="w-12 h-12 border-4 border-slate-600 border-t-green-500 rounded-full animate-spin"></div>
+          <div className="absolute inset-0 w-12 h-12 border-4 border-transparent border-b-emerald-500 rounded-full animate-spin" style={{ animationDirection: 'reverse', animationDuration: '0.8s' }}></div>
         </div>
         
         {/* Texte */}
         <div className="text-center">
           <p className="text-slate-400 text-lg font-medium mb-2">Chargement de FocusTâche...</p>
-          <p className="text-slate-500 text-sm">Préparation de votre espace de travail</p>
+          <p className="text-slate-500 text-sm">Vérification de votre authentification</p>
         </div>
         
         {/* Points de progression */}
@@ -125,7 +158,7 @@ const App = () => {
           {[0, 1, 2].map((i) => (
             <div 
               key={i}
-              className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"
+              className="w-2 h-2 bg-green-500 rounded-full animate-pulse"
               style={{ animationDelay: `${i * 0.3}s` }}
             ></div>
           ))}
@@ -150,7 +183,7 @@ const App = () => {
         <div className="flex gap-4">
           <button 
             onClick={onRetry}
-            className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+            className="flex-1 px-4 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors"
           >
             Réessayer
           </button>
@@ -184,7 +217,7 @@ const App = () => {
         error={appError} 
         onRetry={() => {
           setAppError(null);
-          window.location.reload();
+          checkAuthentication();
         }}
         onLogout={handleLogout}
       />
@@ -236,14 +269,8 @@ const App = () => {
                   </ProtectedRoute>
                 } 
               />
-              <Route 
-                path="/timer" 
-                element={
-                  <ProtectedRoute>
-                    <Timer onError={handleGlobalError} />
-                  </ProtectedRoute>
-                } 
-              />
+             
+        
               <Route 
                 path="/stats" 
                 element={
