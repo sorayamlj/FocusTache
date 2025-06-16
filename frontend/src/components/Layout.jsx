@@ -26,7 +26,6 @@ const Layout = ({ children, user, onLogout }) => {
     { name: 'Mes Tâches', href: '/tasks', icon: CheckSquare, color: 'green' },
     { name: 'Sessions Focus', href: '/sessions', icon: Play, color: 'purple' },
     { name: 'Mes Notes', href: '/notes', icon: BookOpen, color: 'yellow' },
-    { name: 'Timer', href: '/timer', icon: Timer, color: 'red' },
     { name: 'Statistiques', href: '/stats', icon: BarChart3, color: 'cyan' },
     { name: 'Calendrier', href: '/calendar', icon: Calendar, color: 'pink' },
   ];
